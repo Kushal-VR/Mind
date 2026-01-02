@@ -121,92 +121,76 @@ export default function QuestContributionGraph({
       const dateFromISO = startWeek.toISOString();
       const dateToISO = addDays(endWeek, 1).toISOString();
 
-      // 1. Fetch Side Quests
-      let { data: sideQuestsData, error: sideError } = (await supabase
+      // 1. Fetch Side Quest Progress
+      const { data: progressData, error: progressError } = await supabase
         .from("user_quest_progress")
-        .select(
-          `
-          completed_at,
-          quests!inner(
-            difficulty,
-            xp_reward,
-            quest_category
-          )
-        `
-        )
-        .eq("user_id", userId)
-        .eq("completed", true)
-        .not("completed_at", "is", null)
-        .gte("completed_at", dateFromISO)
-        .lt("completed_at", dateToISO)
-        .order("completed_at", { ascending: true })) as {
-        data: CompletedQuest[] | null;
-        error: any;
-      };
-
-      // 🔁 Fallback for Side Quests if join fails
-      if (sideError) {
-        // ... (keep existing fallback logic if needed, or rely on main query)
-        // For brevity in this merge, assuming main query works or simple fallback
-        // Re-implementing simplified fallback if strict necessary, but keeping it concise
-        const { data: progressData } = await supabase
-          .from("user_quest_progress")
-          .select("completed_at, quest_id")
-          .eq("user_id", userId)
-          .eq("completed", true)
-          .not("completed_at", "is", null)
-          .gte("completed_at", dateFromISO)
-          .lt("completed_at", dateToISO);
-        
-        if (progressData && progressData.length > 0) {
-           const questIds = progressData.map((p: any) => p.quest_id);
-           const { data: questsData } = await supabase
-             .from("quests")
-             .select("id, difficulty, xp_reward, quest_category")
-             .in("id", questIds);
-           
-           sideQuestsData = progressData.map((p: any) => {
-             const q = questsData?.find((x: any) => x.id === p.quest_id);
-             if (!q) return null;
-             return {
-               completed_at: p.completed_at,
-               quests: {
-                 difficulty: q.difficulty,
-                 xp_reward: q.xp_reward,
-                 quest_category: q.quest_category
-               }
-             };
-           }).filter(Boolean) as CompletedQuest[];
-        }
-      }
-
-      // 2. Fetch Core Quests
-      const { data: coreQuestsData, error: coreError } = await supabase
-        .from("user_module_quest_progress")
-        .select(`
-          completed_at,
-          module_quest_templates!inner(
-            xp_reward
-          )
-        `)
+        .select("completed_at, quest_id")
         .eq("user_id", userId)
         .eq("completed", true)
         .not("completed_at", "is", null)
         .gte("completed_at", dateFromISO)
         .lt("completed_at", dateToISO);
 
-      // 3. Normalize & Merge
-      const sideQuests = sideQuestsData || [];
-      const coreQuests = (coreQuestsData || []).map((p: any) => ({
-        completed_at: p.completed_at,
-        quests: {
-          difficulty: 'medium', // Default difficulty for core quests
-          xp_reward: p.module_quest_templates.xp_reward,
-          quest_category: 'core'
-        }
-      })) as CompletedQuest[];
+      if (progressError) throw progressError;
 
-      const completedQuests = [...sideQuests, ...coreQuests].sort(
+      // 2. Fetch Core Quest Progress
+      const { data: coreProgressData, error: coreProgressError } = await supabase
+        .from("user_module_quest_progress")
+        .select("completed_at, module_quest_template_id")
+        .eq("user_id", userId)
+        .eq("completed", true)
+        .not("completed_at", "is", null)
+        .gte("completed_at", dateFromISO)
+        .lt("completed_at", dateToISO);
+
+      if (coreProgressError) throw coreProgressError;
+
+      // 3. Fetch Quest Rewards (XP)
+      let sideQuestsWithXP: any[] = [];
+      if (progressData && progressData.length > 0) {
+        const questIds = Array.from(new Set(progressData.map((p: any) => p.quest_id)));
+        const { data: questsData } = await supabase
+          .from("quests")
+          .select("id, xp_reward, difficulty, quest_category")
+          .in("id", questIds);
+
+        sideQuestsWithXP = progressData.map((p: any) => {
+          const quest = questsData?.find((q: any) => q.id === p.quest_id);
+          return {
+            completed_at: p.completed_at,
+            quests: quest ? {
+              difficulty: quest.difficulty || 'medium',
+              xp_reward: quest.xp_reward || 10,
+              quest_category: quest.quest_category || 'side'
+            } : null
+          };
+        }).filter((item: any) => item.quests !== null);
+      }
+
+      // 4. Fetch Core Quest Rewards (XP)
+      let coreQuestsWithXP: any[] = [];
+      if (coreProgressData && coreProgressData.length > 0) {
+        const templateIds = Array.from(new Set(coreProgressData.map((p: any) => p.module_quest_template_id)));
+        const { data: templatesData } = await supabase
+          .from("module_quest_templates")
+          .select("id, xp_reward")
+          .in("id", templateIds);
+
+        coreQuestsWithXP = coreProgressData.map((p: any) => {
+          const template = templatesData?.find((t: any) => t.id === p.module_quest_template_id);
+          return {
+            completed_at: p.completed_at,
+            quests: {
+              difficulty: 'medium',
+              xp_reward: template?.xp_reward || 15,
+              quest_category: 'core'
+            }
+          };
+        });
+      }
+
+      // 5. Merge Normalized Datasets
+      const completedQuests = [...sideQuestsWithXP, ...coreQuestsWithXP].sort(
         (a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
       );
 

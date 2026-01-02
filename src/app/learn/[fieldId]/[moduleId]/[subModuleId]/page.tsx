@@ -8,6 +8,7 @@ import { createClient } from "@/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/back-button";
 
 interface PageProps {
   params: Promise<{
@@ -41,17 +42,20 @@ export default async function SubModulePage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-black text-white px-4 sm:px-6 lg:px-8 py-8">
-      <div className="max-w-7xl mx-auto space-y-12">
-        {/* Navigation Breadcrumbs - Simple Custom Implementation */}
-        <nav className="flex items-center gap-2 text-sm text-white/40">
-          <Link href="/learn" className="hover:text-white transition-colors">Path</Link>
-          <ChevronRight className="h-4 w-4" />
-          <Link href={`/learn/${fieldId}`} className="hover:text-white transition-colors">
-            {subModule.modules?.title || "Field"}
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-white font-bold">{subModule.title}</span>
-        </nav>
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div className="flex flex-col space-y-6">
+          <div className="flex items-center gap-4">
+            <BackButton fallback={`/learn/${fieldId}`} />
+            {/* Navigation Breadcrumbs - Simple Custom Implementation */}
+            <nav className="flex items-center gap-2 text-xs text-white/40 font-medium">
+              <Link href="/learn" className="hover:text-white transition-colors">Path</Link>
+              <ChevronRight className="h-3 w-3" />
+              <Link href={`/learn/${fieldId}`} className="hover:text-white transition-colors">
+                {subModule.modules?.title || "Field"}
+              </Link>
+            </nav>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Header Section */}

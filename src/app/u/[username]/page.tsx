@@ -7,6 +7,7 @@ import { PentagonStats } from "@/components/pentagon-stats";
 import { FollowButton } from "../FollowButton";
 import { Trophy, Star, Users, Globe, UserCircle, BookOpen, ExternalLink, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 
 export default async function PublicProfilePage({
   params
@@ -24,7 +25,12 @@ export default async function PublicProfilePage({
 
   return (
     <div className="min-h-screen bg-black text-white px-4 sm:px-6 lg:px-8 py-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Navigation */}
+        <div className="flex items-center gap-4">
+          <BackButton fallback="/dashboard" />
+        </div>
         
         {/* Profile Header */}
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/40 backdrop-blur-xl p-8 sm:p-12">

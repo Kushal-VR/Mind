@@ -13,6 +13,7 @@ import {
   Trophy,
   ListTodo,
   GraduationCap,
+  Search,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
+import { UserSearchDrawer } from "@/components/user-search-drawer";
 
 export default function DashboardLayout({
   children,
@@ -35,6 +37,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const routes = [
     {
@@ -125,6 +128,22 @@ export default function DashboardLayout({
               </Button>
             );
           })}
+
+          <Separator className="my-4 bg-white/5" />
+          
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setIsSearchOpen(true);
+              setIsOpen(false);
+            }}
+            className="w-full justify-start text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 h-11 px-3 group"
+          >
+            <div className="p-1.5 rounded-lg mr-3 bg-white/5 group-hover:bg-white/10 transition-colors">
+              <Search className="h-4 w-4" />
+            </div>
+            <span className="text-sm">Search Masters</span>
+          </Button>
         </nav>
       </ScrollArea>
 
@@ -199,6 +218,11 @@ export default function DashboardLayout({
       <div className="flex-1 md:ml-64 overflow-x-hidden">
         <div className="h-full pt-14 md:pt-0">{children}</div>
       </div>
+
+      <UserSearchDrawer 
+        open={isSearchOpen} 
+        onOpenChange={setIsSearchOpen} 
+      />
     </div>
   );
 }

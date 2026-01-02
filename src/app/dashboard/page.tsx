@@ -22,7 +22,6 @@ import AIFeatures from "@/components/ai-features";
 import DashboardQuestStats from "@/components/dashboard-quest-stats";
 import QuestContributionGraph from "@/components/quest-contribution-graph";
 import WeeklyProgressGraph from "@/components/weekly-progress-graph";
-import { Discovery } from "./Discovery";
 import { Users } from "lucide-react";
 
 export default async function Dashboard() {
@@ -275,22 +274,6 @@ export default async function Dashboard() {
           </Card>
         </div>
 
-        {/* Discovery Section */}
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-1">
-            <Discovery />
-          </div>
-          <div className="lg:col-span-2 space-y-4">
-             {/* Empty or can put something else here later */}
-             <div className="p-8 rounded-3xl border border-dashed border-white/10 flex flex-col items-center justify-center text-center space-y-4 h-full">
-                <Users className="h-12 w-12 text-white/20" />
-                <div className="space-y-2">
-                  <h3 className="text-lg font-bold text-white/60 uppercase tracking-tighter italic">Connect with Masters</h3>
-                  <p className="text-sm text-white/40 max-w-xs">Follow other users to see their progress and stay motivated in your mindfulness journey.</p>
-                </div>
-             </div>
-          </div>
-        </div>
 
 
         {/* Weekly Progress Section */}
