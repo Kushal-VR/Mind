@@ -78,8 +78,7 @@ export default function WeeklyProgressGraph() {
       const thisWeek = getWeekBounds(0);
       const lastWeek = getWeekBounds(1);
 
-      // Fetch quest data for this week
-      // Fetch quest data for this week
+      // Fetch side quest progress (counts only, separate tables)
       const { count: thisWeekSideQuests } = await supabase
         .from("user_quest_progress")
         .select("*", { count: "exact", head: true })
@@ -98,7 +97,6 @@ export default function WeeklyProgressGraph() {
 
       const thisWeekQuests = (thisWeekSideQuests || 0) + (thisWeekCoreQuests || 0);
 
-      // Fetch quest data for last week
       const { count: lastWeekSideQuests } = await supabase
         .from("user_quest_progress")
         .select("*", { count: "exact", head: true })
@@ -117,7 +115,7 @@ export default function WeeklyProgressGraph() {
 
       const lastWeekQuests = (lastWeekSideQuests || 0) + (lastWeekCoreQuests || 0);
 
-      // Fetch journal data for this week
+      // Fetch journals
       const { count: thisWeekJournals } = await supabase
         .from("journal_entries")
         .select("*", { count: "exact", head: true })
@@ -125,7 +123,6 @@ export default function WeeklyProgressGraph() {
         .gte("created_at", thisWeek.start)
         .lte("created_at", thisWeek.end);
 
-      // Fetch journal data for last week
       const { count: lastWeekJournals } = await supabase
         .from("journal_entries")
         .select("*", { count: "exact", head: true })
@@ -285,59 +282,57 @@ export default function WeeklyProgressGraph() {
         </CardHeader>
         <CardContent className="px-2 sm:px-6">
           <ChartContainer config={chartConfig} className="h-[200px] sm:h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={data} 
-                margin={{ 
-                  top: 10, 
-                  right: 10, 
-                  bottom: 10, 
-                  left: -10 
+            <BarChart 
+              data={data} 
+              margin={{ 
+                top: 10, 
+                right: 10, 
+                bottom: 10, 
+                left: -10 
+              }}
+              barSize={window.innerWidth < 640 ? 30 : 40}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.08)" vertical={false} />
+              <XAxis 
+                dataKey="category" 
+                stroke="rgba(255, 255, 255, 0.3)"
+                tick={{ fill: "rgba(255, 255, 255, 0.7)", fontSize: window.innerWidth < 640 ? 11 : 13 }}
+                tickLine={false}
+                axisLine={{ stroke: "rgba(255, 255, 255, 0.1)" }}
+              />
+              <YAxis 
+                stroke="rgba(255, 255, 255, 0.3)"
+                tick={{ fill: "rgba(255, 255, 255, 0.7)", fontSize: window.innerWidth < 640 ? 11 : 13 }}
+                tickLine={false}
+                axisLine={{ stroke: "rgba(255, 255, 255, 0.1)" }}
+                allowDecimals={false}
+              />
+              <ChartTooltip 
+                content={<ChartTooltipContent />}
+                cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+              />
+              <Legend 
+                wrapperStyle={{ 
+                  color: "rgba(255, 255, 255, 0.7)",
+                  fontSize: window.innerWidth < 640 ? "11px" : "13px",
+                  paddingTop: "10px"
                 }}
-                barSize={window.innerWidth < 640 ? 30 : 40}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.08)" vertical={false} />
-                <XAxis 
-                  dataKey="category" 
-                  stroke="rgba(255, 255, 255, 0.3)"
-                  tick={{ fill: "rgba(255, 255, 255, 0.7)", fontSize: window.innerWidth < 640 ? 11 : 13 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "rgba(255, 255, 255, 0.1)" }}
-                />
-                <YAxis 
-                  stroke="rgba(255, 255, 255, 0.3)"
-                  tick={{ fill: "rgba(255, 255, 255, 0.7)", fontSize: window.innerWidth < 640 ? 11 : 13 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "rgba(255, 255, 255, 0.1)" }}
-                  allowDecimals={false}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent />}
-                  cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
-                />
-                <Legend 
-                  wrapperStyle={{ 
-                    color: "rgba(255, 255, 255, 0.7)",
-                    fontSize: window.innerWidth < 640 ? "11px" : "13px",
-                    paddingTop: "10px"
-                  }}
-                  iconType="circle"
-                  iconSize={8}
-                />
-                <Bar 
-                  dataKey="thisWeek" 
-                  fill="rgba(255, 255, 255, 0.9)" 
-                  radius={[6, 6, 0, 0]}
-                  name="This Week"
-                />
-                <Bar 
-                  dataKey="lastWeek" 
-                  fill="rgba(255, 255, 255, 0.35)" 
-                  radius={[6, 6, 0, 0]}
-                  name="Last Week"
-                />
-              </BarChart>
-            </ResponsiveContainer>
+                iconType="circle"
+                iconSize={8}
+              />
+              <Bar 
+                dataKey="thisWeek" 
+                fill="rgba(255, 255, 255, 0.9)" 
+                radius={[6, 6, 0, 0]}
+                name="This Week"
+              />
+              <Bar 
+                dataKey="lastWeek" 
+                fill="rgba(255, 255, 255, 0.35)" 
+                radius={[6, 6, 0, 0]}
+                name="Last Week"
+              />
+            </BarChart>
           </ChartContainer>
         </CardContent>
       </Card>

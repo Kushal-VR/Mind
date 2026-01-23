@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, UserCircle, Sliders } from "lucide-react";
 import ProfileForm from "./ProfileForm";
 import PreferencesForm from "./PreferencesForm";
+import { BackButton } from "@/components/back-button";
 
 const DEFAULT_TYPES = [
   "creative",
@@ -38,15 +39,18 @@ export default async function SettingsPage() {
   return (
     <div className="container mx-auto px-4 py-8 bg-black text-white min-h-[calc(100vh-4rem)]">
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Settings className="h-8 w-8" />
-            Settings
-          </h1>
-          <p className="text-white/60">
-            Manage your account settings and preferences.
-          </p>
-        </div>
+          <div className="flex items-center gap-4">
+            <BackButton fallback="/profile" />
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+                <Settings className="h-8 w-8" />
+                Settings
+              </h1>
+              <p className="text-white/60">
+                Manage your account settings and preferences.
+              </p>
+            </div>
+          </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="bg-white/10 p-1 border border-white/10">

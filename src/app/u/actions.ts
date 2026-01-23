@@ -129,16 +129,114 @@ export async function searchUsers(query: string) {
   if (!searchTerm || searchTerm.length < 2) return [];
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+  let queryBuilder = supabase
     .from("users")
     .select("id, name, full_name, avatar_url")
-    .ilike("name", `%${searchTerm}%`)
-    .limit(10);
+    .ilike("name", `%${searchTerm}%`);
+
+  if (currentUser) {
+    queryBuilder = queryBuilder.neq("id", currentUser.id);
+  }
+
+  const { data, error } = await queryBuilder.limit(10);
 
   if (error) {
     console.error("Search error:", error);
     return [];
   }
 
-  return data;
+  // If authenticated, check follow status for results
+  if (currentUser) {
+    const userIds = data.map((u: any) => u.id);
+    const { data: followingStatus } = await supabase
+      .from("user_follows")
+      .select("following_id")
+      .eq("follower_id", currentUser.id)
+      .in("following_id", userIds);
+
+    const followingSet = new Set(followingStatus?.map(s => s.following_id));
+    return data.map((u: any) => ({
+      ...u,
+      isFollowing: followingSet.has(u.id)
+    }));
+  }
+
+  return data.map((u: any) => ({ ...u, isFollowing: false }));
+}
+
+export async function getFollowers(userId: string) {
+  const supabase = await createClient();
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from("user_follows")
+    .select(`
+      follower:users!user_follows_follower_id_fkey(id, name, full_name, avatar_url, bio)
+    `)
+    .eq("following_id", userId);
+
+  if (error) {
+    console.error("Error fetching followers:", error);
+    return [];
+  }
+
+  const followers = data.map((item: any) => item.follower);
+
+  // For each follower, check if the current user is following them
+  if (currentUser) {
+    const followerIds = followers.map((f: any) => f.id);
+    const { data: followingStatus } = await supabase
+      .from("user_follows")
+      .select("following_id")
+      .eq("follower_id", currentUser.id)
+      .in("following_id", followerIds);
+
+    const followingSet = new Set(followingStatus?.map(s => s.following_id));
+    return followers.map((f: any) => ({
+      ...f,
+      isFollowing: followingSet.has(f.id),
+      isCurrentUser: f.id === currentUser.id
+    }));
+  }
+
+  return followers.map((f: any) => ({ ...f, isFollowing: false, isCurrentUser: false }));
+}
+
+export async function getFollowing(userId: string) {
+  const supabase = await createClient();
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from("user_follows")
+    .select(`
+      following:users!user_follows_following_id_fkey(id, name, full_name, avatar_url, bio)
+    `)
+    .eq("follower_id", userId);
+
+  if (error) {
+    console.error("Error fetching following:", error);
+    return [];
+  }
+
+  const following = data.map((item: any) => item.following);
+
+  if (currentUser) {
+    const followingIds = following.map((f: any) => f.id);
+    const { data: followingStatus } = await supabase
+      .from("user_follows")
+      .select("following_id")
+      .eq("follower_id", currentUser.id)
+      .in("following_id", followingIds);
+
+    const followingSet = new Set(followingStatus?.map(s => s.following_id));
+    return following.map((f: any) => ({
+      ...f,
+      isFollowing: followingSet.has(f.id),
+      isCurrentUser: f.id === currentUser.id
+    }));
+  }
+
+  return following.map((f: any) => ({ ...f, isFollowing: true, isCurrentUser: false }));
 }
