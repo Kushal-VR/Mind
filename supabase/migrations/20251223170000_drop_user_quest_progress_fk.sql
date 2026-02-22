@@ -1,2 +1,0 @@
-ALTER TABLE user_quest_progress
-DROP CONSTRAINT IF EXISTS user_quest_progress_quest_id_fkey;

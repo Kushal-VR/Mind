@@ -133,19 +133,19 @@ export default function QuestContributionGraph({
 
       if (progressError) throw progressError;
 
-      // 2. Fetch Core Quest Progress
-      const { data: coreProgressData, error: coreProgressError } = await supabase
-        .from("user_module_quest_progress")
-        .select("completed_at, module_quest_template_id")
+      // 2. Fetch Learning Quest Progress
+      const { data: learningProgressData, error: learningProgressError } = await supabase
+        .from("user_learning_quests")
+        .select("completed_at, xp_reward, title")
         .eq("user_id", userId)
         .eq("completed", true)
         .not("completed_at", "is", null)
         .gte("completed_at", dateFromISO)
         .lt("completed_at", dateToISO);
 
-      if (coreProgressError) throw coreProgressError;
+      if (learningProgressError) throw learningProgressError;
 
-      // 3. Fetch Quest Rewards (XP)
+      // 3. Fetch Side Quest Rewards (XP)
       let sideQuestsWithXP: any[] = [];
       if (progressData && progressData.length > 0) {
         const questIds = Array.from(new Set(progressData.map((p: any) => p.quest_id)));
@@ -167,30 +167,18 @@ export default function QuestContributionGraph({
         }).filter((item: any) => item.quests !== null);
       }
 
-      // 4. Fetch Core Quest Rewards (XP)
-      let coreQuestsWithXP: any[] = [];
-      if (coreProgressData && coreProgressData.length > 0) {
-        const templateIds = Array.from(new Set(coreProgressData.map((p: any) => p.module_quest_template_id)));
-        const { data: templatesData } = await supabase
-          .from("module_quest_templates")
-          .select("id, xp_reward")
-          .in("id", templateIds);
-
-        coreQuestsWithXP = coreProgressData.map((p: any) => {
-          const template = templatesData?.find((t: any) => t.id === p.module_quest_template_id);
-          return {
-            completed_at: p.completed_at,
-            quests: {
-              difficulty: 'medium',
-              xp_reward: template?.xp_reward || 15,
-              quest_category: 'core'
-            }
-          };
-        });
-      }
+      // 4. Map Learning Quests to common format (they already have XP)
+      const learningQuestsWithXP = (learningProgressData || []).map((p: any) => ({
+        completed_at: p.completed_at,
+        quests: {
+          difficulty: 'medium', // Default to medium, will be refined by XP in mapping loop
+          xp_reward: p.xp_reward || 15,
+          quest_category: 'core' // Treat as core/learning path for color coding
+        }
+      }));
 
       // 5. Merge Normalized Datasets
-      const completedQuests = [...sideQuestsWithXP, ...coreQuestsWithXP].sort(
+      const completedQuests = [...sideQuestsWithXP, ...learningQuestsWithXP].sort(
         (a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
       );
 
