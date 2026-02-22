@@ -10,8 +10,8 @@ import {
   CardTitle,
 } from "./ui/card";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, TrendingDown, Trophy, BookOpen, Activity } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { TrendingUp, TrendingDown, Trophy, BookOpen, Activity, Zap } from "lucide-react";
 import RippleLoader from "./ui/rippleLoader";
 
 interface WeeklyData {
@@ -78,57 +78,90 @@ export default function WeeklyProgressGraph() {
       const thisWeek = getWeekBounds(0);
       const lastWeek = getWeekBounds(1);
 
-      // Fetch side quest progress (counts only, separate tables)
-      const { count: thisWeekSideQuests } = await supabase
-        .from("user_quest_progress")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("completed", true)
-        .gte("completed_at", thisWeek.start)
-        .lte("completed_at", thisWeek.end);
+      // --- FETCH THIS WEEK DATA ---
+      const [
+        { data: thisWeekSideCompletions },
+        { data: thisWeekLearningCompletions },
+        { count: thisWeekJournals }
+      ] = await Promise.all([
+        supabase
+          .from("user_quest_progress")
+          .select("quest_id")
+          .eq("user_id", user.id)
+          .eq("completed", true)
+          .gte("completed_at", thisWeek.start)
+          .lte("completed_at", thisWeek.end),
+        supabase
+          .from("user_learning_quests")
+          .select("xp_reward")
+          .eq("user_id", user.id)
+          .eq("completed", true)
+          .gte("completed_at", thisWeek.start)
+          .lte("completed_at", thisWeek.end),
+        supabase
+          .from("journal_entries")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", thisWeek.start)
+          .lte("created_at", thisWeek.end)
+      ]);
 
-      const { count: thisWeekCoreQuests } = await supabase
-        .from("user_module_quest_progress")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("completed", true)
-        .gte("completed_at", thisWeek.start)
-        .lte("completed_at", thisWeek.end);
+      // Calculate This Week XP
+      let thisWeekSideXP = 0;
+      if (thisWeekSideCompletions && thisWeekSideCompletions.length > 0) {
+        const questIds = thisWeekSideCompletions.map((c: any) => c.quest_id);
+        const { data: questsData } = await supabase
+          .from("quests")
+          .select("xp_reward")
+          .in("id", questIds);
+        thisWeekSideXP = (questsData || []).reduce((acc: number, q: any) => acc + (q.xp_reward || 0), 0);
+      }
+      const thisWeekLearningXP = (thisWeekLearningCompletions || []).reduce((acc: number, q: any) => acc + (q.xp_reward || 0), 0);
+      const thisWeekTotalXP = thisWeekSideXP + thisWeekLearningXP;
+      const thisWeekQuests = (thisWeekSideCompletions?.length || 0) + (thisWeekLearningCompletions?.length || 0);
 
-      const thisWeekQuests = (thisWeekSideQuests || 0) + (thisWeekCoreQuests || 0);
 
-      const { count: lastWeekSideQuests } = await supabase
-        .from("user_quest_progress")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("completed", true)
-        .gte("completed_at", lastWeek.start)
-        .lte("completed_at", lastWeek.end);
+      // --- FETCH LAST WEEK DATA ---
+      const [
+        { data: lastWeekSideCompletions },
+        { data: lastWeekLearningCompletions },
+        { count: lastWeekJournals }
+      ] = await Promise.all([
+        supabase
+          .from("user_quest_progress")
+          .select("quest_id")
+          .eq("user_id", user.id)
+          .eq("completed", true)
+          .gte("completed_at", lastWeek.start)
+          .lte("completed_at", lastWeek.end),
+        supabase
+          .from("user_learning_quests")
+          .select("xp_reward")
+          .eq("user_id", user.id)
+          .eq("completed", true)
+          .gte("completed_at", lastWeek.start)
+          .lte("completed_at", lastWeek.end),
+        supabase
+          .from("journal_entries")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", lastWeek.start)
+          .lte("created_at", lastWeek.end)
+      ]);
 
-      const { count: lastWeekCoreQuests } = await supabase
-        .from("user_module_quest_progress")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("completed", true)
-        .gte("completed_at", lastWeek.start)
-        .lte("completed_at", lastWeek.end);
-
-      const lastWeekQuests = (lastWeekSideQuests || 0) + (lastWeekCoreQuests || 0);
-
-      // Fetch journals
-      const { count: thisWeekJournals } = await supabase
-        .from("journal_entries")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .gte("created_at", thisWeek.start)
-        .lte("created_at", thisWeek.end);
-
-      const { count: lastWeekJournals } = await supabase
-        .from("journal_entries")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .gte("created_at", lastWeek.start)
-        .lte("created_at", lastWeek.end);
+      // Calculate Last Week XP
+      let lastWeekSideXP = 0;
+      if (lastWeekSideCompletions && lastWeekSideCompletions.length > 0) {
+        const questIds = lastWeekSideCompletions.map((c: any) => c.quest_id);
+        const { data: questsData } = await supabase
+          .from("quests")
+          .select("xp_reward")
+          .in("id", questIds);
+        lastWeekSideXP = (questsData || []).reduce((acc: number, q: any) => acc + (q.xp_reward || 0), 0);
+      }
+      const lastWeekLearningXP = (lastWeekLearningCompletions || []).reduce((acc: number, q: any) => acc + (q.xp_reward || 0), 0);
+      const lastWeekTotalXP = lastWeekSideXP + lastWeekLearningXP;
+      const lastWeekQuests = (lastWeekSideCompletions?.length || 0) + (lastWeekLearningCompletions?.length || 0);
 
       setData([
         {
@@ -140,6 +173,11 @@ export default function WeeklyProgressGraph() {
           category: "Journals",
           thisWeek: thisWeekJournals || 0,
           lastWeek: lastWeekJournals || 0,
+        },
+        {
+          category: "XP",
+          thisWeek: thisWeekTotalXP || 0,
+          lastWeek: lastWeekTotalXP || 0,
         },
       ]);
     } catch (error) {
@@ -186,13 +224,16 @@ export default function WeeklyProgressGraph() {
 
   const questsData = data.find(d => d.category === "Quests");
   const journalsData = data.find(d => d.category === "Journals");
+  const xpData = data.find(d => d.category === "XP");
+
   const questTrend = questsData ? calculateTrend(questsData.thisWeek, questsData.lastWeek) : { direction: "neutral", percentage: 0 };
   const journalTrend = journalsData ? calculateTrend(journalsData.thisWeek, journalsData.lastWeek) : { direction: "neutral", percentage: 0 };
+  const xpTrend = xpData ? calculateTrend(xpData.thisWeek, xpData.lastWeek) : { direction: "neutral", percentage: 0 };
 
   return (
     <div className="space-y-4">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Quests Card */}
         <Card className="border border-white/20 bg-black/50 backdrop-blur-sm transition-all duration-300 hover:border-white/30 hover:shadow-lg hover:shadow-white/5">
           <CardHeader className="pb-3">
@@ -266,6 +307,45 @@ export default function WeeklyProgressGraph() {
               </div>
               <div className="text-xs sm:text-sm text-white/50">
                 {journalsData?.lastWeek || 0} last week
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* XP Card */}
+        <Card className="border border-white/20 bg-black/50 backdrop-blur-sm transition-all duration-300 hover:border-white/30 hover:shadow-lg hover:shadow-white/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-white/10">
+                  <Zap className="h-4 w-4 text-white" />
+                </div>
+                <CardTitle className="text-base sm:text-lg text-white">XP Earned</CardTitle>
+              </div>
+              {xpTrend.direction !== "neutral" && (
+                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                  xpTrend.direction === "up" 
+                    ? "bg-white/10 text-white" 
+                    : "bg-white/5 text-white/70"
+                }`}>
+                  {xpTrend.direction === "up" ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span className="font-semibold">{xpTrend.percentage}%</span>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl sm:text-4xl font-bold text-white">{xpData?.thisWeek || 0}</span>
+                <span className="text-sm text-white/60">this week</span>
+              </div>
+              <div className="text-xs sm:text-sm text-white/50">
+                {xpData?.lastWeek || 0} last week
               </div>
             </div>
           </CardContent>
