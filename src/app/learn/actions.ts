@@ -140,7 +140,27 @@ export async function completeLearningQuest(questId: string) {
     const now = new Date().toISOString();
     const xpReward = quest.xp_reward;
 
-    // Update Quest Completion
+    // Fetch level requirements for calculations
+    const { data: levels } = await supabase
+      .from("user_levels")
+      .select("*")
+      .order("level", { ascending: true });
+
+    const calculateLevel = (xp: number) => {
+      let level = 1;
+      if (levels && levels.length > 0) {
+        for (let i = 0; i < levels.length; i++) {
+          if (xp >= levels[i].xp_required) {
+            level = levels[i].level;
+          } else {
+            break;
+          }
+        }
+      }
+      return level;
+    };
+
+    // 1. Update Quest Completion
     const { error: updateError } = await supabase
       .from("user_learning_quests")
       .update({
@@ -151,7 +171,7 @@ export async function completeLearningQuest(questId: string) {
 
     if (updateError) throw updateError;
 
-    // Update Field XP
+    // 2. Update Field XP and Level
     const { data: fieldProgress } = await supabase
       .from("user_field_progress")
       .select("field_xp")
@@ -160,13 +180,20 @@ export async function completeLearningQuest(questId: string) {
       .single();
 
     const newFieldXP = (fieldProgress?.field_xp || 0) + xpReward;
+    const newFieldLevel = calculateLevel(newFieldXP);
+    
     await supabase
       .from("user_field_progress")
-      .update({ field_xp: newFieldXP, updated_at: now })
-      .eq("user_id", user.id)
-      .eq("field_id", quest.field_id);
+      .upsert({ 
+        user_id: user.id,
+        field_id: quest.field_id,
+        field_xp: newFieldXP, 
+        field_level: newFieldLevel,
+        unlocked: true,
+        updated_at: now 
+      }, { onConflict: "user_id,field_id" });
 
-    // Update Global XP (70%)
+    // 3. Update Global XP (70%) and Level
     const { data: globalProgress } = await supabase
       .from("user_global_progress")
       .select("global_xp")
@@ -175,12 +202,18 @@ export async function completeLearningQuest(questId: string) {
 
     const globalXPReward = Math.round(xpReward * 0.7);
     const newGlobalXP = (globalProgress?.global_xp || 0) + globalXPReward;
+    const newGlobalLevel = calculateLevel(newGlobalXP);
+
     await supabase
       .from("user_global_progress")
-      .update({ global_xp: newGlobalXP, updated_at: now })
+      .update({ 
+        global_xp: newGlobalXP, 
+        global_level: newGlobalLevel,
+        updated_at: now 
+      })
       .eq("user_id", user.id);
 
-    // Update Legacy User XP
+    // 4. Update Legacy User XP
     const { data: userData } = await supabase
       .from("users")
       .select("user_xp")

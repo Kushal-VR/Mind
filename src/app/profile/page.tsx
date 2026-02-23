@@ -20,7 +20,7 @@ export default async function MyProfilePage() {
     notFound();
   }
 
-  const { user, globalProgress, fieldProgress, maxLevel, followersCount, followingCount } = profile;
+  const { user, globalProgress, fieldProgress, activeField, maxLevel, followersCount, followingCount, learningXP, sideQuestXP } = profile;
 
   return (
     <div className="min-h-screen bg-black text-white px-4 sm:px-6 lg:px-8 py-8">
@@ -51,6 +51,11 @@ export default async function MyProfilePage() {
                   <Badge variant="outline" className="text-[10px] uppercase border-teal-500/30 text-teal-400 font-black bg-teal-500/10">
                     LVL {globalProgress?.global_level || 1}
                   </Badge>
+                  {activeField && activeField.xp > 0 && (
+                    <Badge variant="secondary" className="text-[10px] uppercase bg-white/10 text-white font-black border-white/10">
+                      {activeField.name} Expert
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-white/70 font-mono text-sm">@{user.name}</p>
               </div>
@@ -88,20 +93,46 @@ export default async function MyProfilePage() {
             </div>
 
             {/* Global Stats Sidebar */}
-            <div className="hidden lg:flex flex-col gap-4 min-w-[200px]">
+            <div className="hidden lg:flex flex-col gap-3 min-w-[200px]">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/70 mb-1">League</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">League</p>
                 <div className="flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-yellow-500" />
                   <span className="font-black italic text-white uppercase tracking-tight">{globalProgress?.league || "Bronze"}</span>
                 </div>
               </div>
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/70 mb-1">Total Mastery</p>
+              
+              <div className="p-4 rounded-2xl bg-white/10 border border-teal-500/20 backdrop-blur-md">
+                <p className="text-[10px] font-black uppercase tracking-widest text-teal-400 mb-1">Global XP</p>
                 <div className="flex items-center gap-2">
                   <Star className="h-4 w-4 text-teal-400 fill-teal-400/20" />
-                  <span className="font-black text-white">{globalProgress?.global_xp || 0} XP</span>
+                  <span className="font-black text-white">{globalProgress?.global_xp?.toLocaleString() || 0}</span>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <div className="p-3 rounded-xl bg-white/5 border border-white/5 backdrop-blur-sm">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">Learning XP</p>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-3 w-3 text-indigo-400" />
+                    <span className="font-bold text-xs text-white/90">{learningXP?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
+                
+                <div className="p-3 rounded-xl bg-white/5 border border-white/5 backdrop-blur-sm">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">Side Quest XP</p>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                    <span className="font-bold text-xs text-white/90">{sideQuestXP?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
+                {/* <div className="p-3 rounded-xl bg-white/5 border border-white/5 backdrop-blur-sm">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">Legacy XP</p>
+                  <div className="flex items-center gap-2">
+                    <Star className="h-3 w-3 text-orange-400" />
+                    <span className="font-bold text-xs text-white/90">{(user as any).user_xp?.toLocaleString() || 0}</span>
+                  </div>
+                </div> */}
               </div>
             </div>
           </div>
@@ -123,23 +154,23 @@ export default async function MyProfilePage() {
           <div className="space-y-6">
             <h2 className="text-xl font-bold flex items-center gap-3">
               <BookOpen className="h-5 w-5 text-indigo-400" />
-              Active Fields
+              Field Progression
             </h2>
             <div className="grid gap-3">
-              {fieldProgress.filter(f => f.unlocked).map(field => (
+              {fieldProgress.filter(f => f.xp > 0).map(field => (
                 <Card key={field.id} className="bg-zinc-900/40 border-white/10 hover:border-white/30 transition-all group rounded-2xl backdrop-blur-xl">
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>
-                      <p className="font-bold text-white group-hover:text-teal-400 transition-colors">{field.name}</p>
+                      <p className="font-bold text-white group-hover:text-teal-400 transition-colors uppercase italic tracking-tighter">{field.name}</p>
                       <p className="text-[10px] uppercase tracking-widest text-white/60 font-black">Level {field.level}</p>
                     </div>
-                    <Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-500/30 font-black text-[10px] px-3">
+                    <Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-500/30 font-black text-[10px] px-3 italic">
                       {field.xp} XP
                     </Badge>
                   </CardContent>
                 </Card>
               ))}
-              {fieldProgress.filter(f => f.unlocked).length === 0 && (
+              {fieldProgress.filter(f => f.xp > 0).length === 0 && (
                 <p className="text-center text-white/20 text-sm py-12 border border-dashed border-white/10 rounded-2xl">
                   No fields mastered yet
                 </p>

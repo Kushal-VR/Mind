@@ -35,11 +35,46 @@ export async function getLeagueData() {
     .eq("id", user.id)
     .single();
 
+  // 4. Fetch additional XP types for current user
+  const [
+    { data: allFields },
+    { data: fieldProgress }, 
+    { data: sideQuestProgress }
+  ] = await Promise.all([
+    supabase.from("fields").select("id, name, slug"),
+    supabase.from("user_field_progress").select("field_id, field_xp").eq("user_id", user.id),
+    supabase.from("user_quest_progress").select("quest_id").eq("user_id", user.id).eq("completed", true)
+  ]);
+
+  const questIds = Array.from(new Set((sideQuestProgress || []).map(p => p.quest_id)));
+  const { data: questsData } = await supabase.from("quests").select("id, xp_reward").in("id", questIds);
+  const questXPMap = new Map((questsData || []).map(q => [q.id, q.xp_reward]));
+
+  const fieldSlugMap = new Map((allFields || []).map(f => [f.id, f.slug]));
+  
+  const getFieldXP = (slugMatch: string) => {
+    return (fieldProgress || [])
+      .filter(fp => {
+        const slug = fieldSlugMap.get(fp.field_id || "");
+        return slug?.toLowerCase().includes(slugMatch);
+      })
+      .reduce((sum, fp) => sum + (fp.field_xp || 0), 0);
+  };
+
+  const fitnessXP = getFieldXP("fitness");
+  const habitXP = getFieldXP("habit");
+  const productivityXP = getFieldXP("productivity");
+  const sideQuestXP = (sideQuestProgress || []).reduce((sum, p) => sum + (questXPMap.get(p.quest_id || "") || 0), 0);
+
   return {
     ...globalProgress,
     rank,
     fullName: userData?.full_name || user.email,
-    userId: user.id
+    userId: user.id,
+    fitnessXP,
+    habitXP,
+    productivityXP,
+    sideQuestXP
   };
 }
 
@@ -74,14 +109,45 @@ export async function getLeagueLeaderboard(league: string) {
     console.error("Error fetching leaderboard users:", userError);
   }
 
-  // 4. Merge results in application code
-  const userMap = new Map((userData || []).map(u => [u.id, u.full_name || "Anonymous"]));
+  // 4. Fetch additional data separately (avoiding relationship issues)
+  const [
+    { data: allFields },
+    { data: fieldProgressData },
+    { data: sideQuestProgressData }
+  ] = await Promise.all([
+    supabase.from("fields").select("id, slug"),
+    supabase.from("user_field_progress").select("user_id, field_id, field_xp").in("user_id", userIds),
+    supabase.from("user_quest_progress").select("user_id, quest_id").eq("completed", true).in("user_id", userIds)
+  ]);
 
-  return progressData.map((entry, index) => ({
-    rank: index + 1,
-    userId: entry.user_id,
-    fullName: userMap.get(entry.user_id) || "Anonymous",
-    globalLevel: entry.global_level,
-    globalXP: entry.global_xp,
-  }));
+  const allQuestIds = Array.from(new Set((sideQuestProgressData || []).map(p => p.quest_id)));
+  const { data: leaderQuestsData } = await supabase.from("quests").select("id, xp_reward").in("id", allQuestIds);
+  const leaderQuestXPMap = new Map((leaderQuestsData || []).map(q => [q.id, q.xp_reward]));
+
+  const fieldSlugMap = new Map((allFields || []).map(f => [f.id, f.slug]));
+  const userMap = new Map((userData || []).map(u => [u.id, u.full_name || "Anonymous"]));
+  
+  const getAggregatedXP = (uid: string, slugMatch: string) => {
+    return (fieldProgressData || [])
+      .filter(fp => fp.user_id === uid && fieldSlugMap.get(fp.field_id || "")?.toLowerCase().includes(slugMatch))
+      .reduce((sum, fp) => sum + (fp.field_xp || 0), 0);
+  };
+
+  return progressData.map((entry, index) => {
+    const sideQuestXP = (sideQuestProgressData || [])
+      .filter(p => p.user_id === entry.user_id)
+      .reduce((sum, p) => sum + (leaderQuestXPMap.get(p.quest_id || "") || 0), 0);
+
+    return {
+      rank: index + 1,
+      userId: entry.user_id,
+      fullName: userMap.get(entry.user_id) || "Anonymous",
+      globalLevel: entry.global_level,
+      globalXP: entry.global_xp,
+      fitnessXP: getAggregatedXP(entry.user_id, "fitness"),
+      habitXP: getAggregatedXP(entry.user_id, "habit"),
+      productivityXP: getAggregatedXP(entry.user_id, "productivity"),
+      sideQuestXP,
+    };
+  });
 }

@@ -8,10 +8,10 @@ export async function getMyProfile() {
 
   if (!user) return null;
 
-  // 1. Fetch user data
+  // 1. Fetch user data (including total_xp)
   const { data: userData, error: userError } = await supabase
     .from("users")
-    .select("id, name, full_name, bio, website, avatar_url")
+    .select("id, name, full_name, bio, website, avatar_url, user_xp")
     .eq("id", user.id)
     .single();
 
@@ -24,19 +24,45 @@ export async function getMyProfile() {
     .eq("user_id", user.id)
     .single();
 
-  // 3. Fetch ALL fields
+  // 3. Calculate Learning XP
+  const { data: learningQuests } = await supabase
+    .from("user_learning_quests")
+    .select("xp_reward")
+    .eq("user_id", user.id)
+    .eq("completed", true);
+  
+  const learningXP = (learningQuests || []).reduce((sum, q) => sum + (q.xp_reward || 0), 0);
+
+  // 4. Calculate Side Quest XP
+  // Fetch completed side quest progress
+  const { data: qProgress } = await supabase
+    .from("user_quest_progress")
+    .select("quest_id")
+    .eq("user_id", user.id)
+    .eq("completed", true);
+  
+  const sideQuestIds = (qProgress || []).map(p => p.quest_id);
+  let sideQuestXP = 0;
+  if (sideQuestIds.length > 0) {
+    const { data: sQuests } = await supabase
+      .from("quests")
+      .select("xp_reward")
+      .in("id", sideQuestIds);
+    sideQuestXP = (sQuests || []).reduce((sum, q) => sum + (q.xp_reward || 0), 0);
+  }
+
+  // 5. Fetch ALL fields
   const { data: allFields } = await supabase
     .from("fields")
     .select("id, name");
 
-  // 4. Fetch field progress (unlocked only)
+  // 6. Fetch field progress (all progress)
   const { data: fieldProgress } = await supabase
     .from("user_field_progress")
     .select("field_id, field_xp, field_level, unlocked")
-    .eq("user_id", user.id)
-    .eq("unlocked", true);
+    .eq("user_id", user.id);
 
-  // 5. Fetch follower/following counts
+  // 7. Fetch follower/following counts
   const { count: followersCount } = await supabase
     .from("user_follows")
     .select("*", { count: "exact", head: true })
@@ -53,11 +79,14 @@ export async function getMyProfile() {
     return {
       id: field.id,
       name: field.name,
-      level: progress ? progress.field_level : 0, // 0 for locked fields
+      level: progress ? progress.field_level : 1, // Default to level 1
       xp: progress ? progress.field_xp : 0,
       unlocked: progress ? progress.unlocked : false
     };
   });
+
+  // Calculate Active Field (Highest XP)
+  const activeField = [...processedFields].sort((a, b) => b.xp - a.xp)[0];
 
   const maxLevel = Math.max(...processedFields.map(f => f.level), 1);
 
@@ -65,8 +94,11 @@ export async function getMyProfile() {
     user: userData,
     globalProgress,
     fieldProgress: processedFields,
+    activeField,
     maxLevel,
     followersCount: followersCount || 0,
-    followingCount: followingCount || 0
+    followingCount: followingCount || 0,
+    learningXP,
+    sideQuestXP
   };
 }
